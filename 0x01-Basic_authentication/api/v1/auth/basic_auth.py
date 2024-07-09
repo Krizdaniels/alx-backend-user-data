@@ -12,7 +12,80 @@ from models.user import User
 
 class BasicAuth(Auth):
     """Basic authentication class.
+    """#!/usr/bin/env python3
+""" The Basic authentication module for the API.
+"""
+import re
+import base64
+import binascii
+from typing import Tuple, TypeVar
+
+from api.v1.auth.auth import Auth
+from api.v1.models.user import User  # Adjust according to your project structure
+
+
+class BasicAuth(Auth):
+    """Basic authentication class.
     """
+    def extract_base64_authorization_header(self, authorization_header: str) -> str:
+        """Extracts the Base64 part of the Authorization header for Basic Authentication.
+        """
+        if isinstance(authorization_header, str):
+            match = re.match(r'^Basic\s+(.*)$', authorization_header.strip())
+            if match:
+                return match.group(1)
+        return None
+
+    def decode_base64_authorization_header(self, base64_authorization_header: str) -> str:
+        """Decodes a Base64-encoded authorization header.
+        """
+        try:
+            decoded_bytes = base64.b64decode(base64_authorization_header)
+            return decoded_bytes.decode('utf-8')
+        except (TypeError, binascii.Error, UnicodeDecodeError):
+            return None
+
+    def extract_user_credentials(self, decoded_base64_auth_header: str) -> Tuple[str, str]:
+        """Extracts user credentials from a decoded Base64-encoded authorization header.
+        """
+        if isinstance(decoded_base64_auth_header, str):
+            match = re.match(r'^(.*?):(.*)$', decoded_base64_auth_header.strip())
+            if match:
+                return match.group(1), match.group(2)
+        return None, None
+
+    def user_object_from_credentials(self, user_email: str, user_pwd: str) -> TypeVar('User'):
+        """Retrieves a User object based on user credentials.
+        """
+        try:
+            users = User.search({'email': user_email})
+            if users and len(users) > 0 and users[0].is_valid_password(user_pwd):
+                return users[0]
+        except Exception as e:
+            print(f"Error fetching user: {e}")
+        return None
+
+    def current_user(self, request=None) -> TypeVar('User'):
+        """Retrieves the current authenticated User from a request.
+        """
+        auth_header = self.authorization_header(request)
+        if not auth_header:
+            return None
+
+        base64_token = self.extract_base64_authorization_header(auth_header)
+        if not base64_token:
+            return None
+
+        decoded_token = self.decode_base64_authorization_header(base64_token)
+        if not decoded_token:
+            return None
+
+        email, password = self.extract_user_credentials(decoded_token)
+        if not email or not password:
+            return None
+
+        return self.user_object_from_credentials(email, password)
+
     def extract_base64_authorization_header(
             self,
             authorization_header: str) -> str:
