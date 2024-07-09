@@ -12,4 +12,3 @@ from api.v1.views.users import *
 from models.user import User
 
 User.load_from_file()
->>>>>>> 9fab7352010817c5002d55bf4d23499dc85d973a
